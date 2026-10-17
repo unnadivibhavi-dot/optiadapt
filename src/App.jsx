@@ -1,122 +1,299 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+
+import { auth } from "./services/firebase";
+
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+} from "./services/authService";
+
+import Dashboard from "./pages/Dashboard";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+  // Check if a user is already logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        setUser(currentUser);
+        setChecking(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Handle Login and Registration
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    setMessage("");
+    setLoading(true);
+
+    try {
+      if (isRegister) {
+        await registerUser(email, password);
+      } else {
+        await loginUser(email, password);
+      }
+
+      setPassword("");
+    } catch (error) {
+      if (error.code === "auth/email-already-in-use") {
+        setMessage("This email is already registered.");
+      } else if (error.code === "auth/weak-password") {
+        setMessage("Please choose a stronger password.");
+      } else if (error.code === "auth/invalid-email") {
+        setMessage("Please enter a valid email address.");
+      } else if (error.code === "auth/invalid-credential") {
+        setMessage("Invalid email or password.");
+      } else {
+        setMessage("Authentication failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    setMessage("");
+
+    try {
+      await logoutUser();
+      setEmail("");
+      setPassword("");
+      setIsRegister(false);
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setMessage("Logout failed. Please try again.");
+    }
+  };
+
+  // Shared page styles
+  const page = {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "#081426",
+    color: "#f1f7ff",
+    padding: "24px",
+    fontFamily: "Arial, sans-serif",
+  };
+
+  const card = {
+    width: "100%",
+    maxWidth: "420px",
+    padding: "35px",
+    background: "#132743",
+    border: "1px solid #28506a",
+    borderRadius: "20px",
+    textAlign: "center",
+  };
+
+  const field = {
+    width: "100%",
+    padding: "14px",
+    marginBottom: "15px",
+    borderRadius: "8px",
+    border: "1px solid #456078",
+    background: "#081426",
+    color: "#ffffff",
+    boxSizing: "border-box",
+  };
+
+  const button = {
+    width: "100%",
+    padding: "14px",
+    background: "#42e5e8",
+    color: "#081426",
+    border: "none",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
+
+  // Loading Screen
+  if (checking) {
+    return (
+      <main style={page}>
+        <p>Loading OptiAdapt...</p>
+      </main>
+    );
+  }
+
+  // Dashboard after successful Login
+  if (user) {
+    return (
+      <>
+        <Dashboard />
+
         <button
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          onClick={handleLogout}
+          style={{
+            position: "fixed",
+            top: "90px",
+            right: "24px",
+            zIndex: 10,
+            padding: "10px 20px",
+            borderRadius: "8px",
+            background: "#42e5e8",
+            color: "#081426",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
         >
-          Count is {count}
+          Logout
         </button>
+
+        {message && (
+          <p
+            role="alert"
+            style={{
+              position: "fixed",
+              top: "145px",
+              right: "24px",
+              color: "#ff9292",
+              zIndex: 10,
+              background: "#132743",
+              padding: "10px",
+              borderRadius: "8px",
+            }}
+          >
+            {message}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  // Login and Register Screen
+  return (
+    <main style={page}>
+      <section style={card}>
+        <h1
+          style={{
+            color: "#42e5e8",
+            fontSize: "38px",
+            marginBottom: "15px",
+          }}
+        >
+          OptiAdapt
+        </h1>
+
+        <p
+          style={{
+            color: "#b9cddd",
+            marginBottom: "30px",
+          }}
+        >
+          Beyond the Lens. Into Better Vision.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <h2 style={{ marginBottom: "25px" }}>
+            {isRegister
+              ? "Create Account"
+              : "Welcome Back"}
+          </h2>
+
+          <input
+            style={field}
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+
+          <input
+            style={field}
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={
+              isRegister
+                ? "new-password"
+                : "current-password"
+            }
+            minLength={6}
+            required
+          />
+
+          {message && (
+            <p
+              role="alert"
+              style={{
+                color: "#ff9292",
+                marginBottom: "15px",
+              }}
+            >
+              {message}
+            </p>
+          )}
+
+          <button
+            style={button}
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Please wait..."
+              : isRegister
+              ? "Register"
+              : "Login"}
+          </button>
+
+          <p
+            style={{
+              marginTop: "25px",
+              color: "#b9cddd",
+            }}
+          >
+            {isRegister
+              ? "Already have an account?"
+              : "Don't have an account?"}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setMessage("");
+              setPassword("");
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#42e5e8",
+              cursor: "pointer",
+              marginTop: "10px",
+            }}
+          >
+            {isRegister
+              ? "Login here"
+              : "Register here"}
+          </button>
+        </form>
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;
