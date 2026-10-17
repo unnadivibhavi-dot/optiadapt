@@ -11,35 +11,37 @@ import {
 } from "./services/authService";
 
 import Dashboard from "./pages/Dashboard";
+import CustomerCases from "./pages/CustomerCases";
 
 function App() {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Check if a user is already logged in
+  // Dashboard or Customer Cases
+  const [currentPage, setCurrentPage] = useState("dashboard");
+
+  // Check authentication
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (currentUser) => {
-        setUser(currentUser);
-        setChecking(false);
-      }
-    );
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setChecking(false);
+    });
 
     return () => unsubscribe();
   }, []);
 
-  // Handle Login and Registration
+  // Login or Register
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setMessage("");
     setLoading(true);
+    setMessage("");
 
     try {
       if (isRegister) {
@@ -49,7 +51,11 @@ function App() {
       }
 
       setPassword("");
+      setCurrentPage("dashboard");
+
     } catch (error) {
+      console.error("Authentication error:", error);
+
       if (error.code === "auth/email-already-in-use") {
         setMessage("This email is already registered.");
       } else if (error.code === "auth/weak-password") {
@@ -61,39 +67,41 @@ function App() {
       } else {
         setMessage("Authentication failed. Please try again.");
       }
+
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Logout
+  // Logout
   const handleLogout = async () => {
-    setMessage("");
-
     try {
       await logoutUser();
+
       setEmail("");
       setPassword("");
       setIsRegister(false);
+      setCurrentPage("dashboard");
+      setMessage("");
+
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error("Logout error:", error);
       setMessage("Logout failed. Please try again.");
     }
   };
 
-  // Shared page styles
-  const page = {
+  const pageStyle = {
     minHeight: "100vh",
+    background: "#081426",
+    color: "#f1f7ff",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "#081426",
-    color: "#f1f7ff",
     padding: "24px",
     fontFamily: "Arial, sans-serif",
   };
 
-  const card = {
+  const cardStyle = {
     width: "100%",
     maxWidth: "420px",
     padding: "35px",
@@ -103,7 +111,7 @@ function App() {
     textAlign: "center",
   };
 
-  const field = {
+  const inputStyle = {
     width: "100%",
     padding: "14px",
     marginBottom: "15px",
@@ -111,12 +119,10 @@ function App() {
     border: "1px solid #456078",
     background: "#081426",
     color: "#ffffff",
-    boxSizing: "border-box",
   };
 
-  const button = {
-    width: "100%",
-    padding: "14px",
+  const buttonStyle = {
+    padding: "12px 20px",
     background: "#42e5e8",
     color: "#081426",
     border: "none",
@@ -125,96 +131,93 @@ function App() {
     cursor: "pointer",
   };
 
-  // Loading Screen
+  // Loading screen
   if (checking) {
     return (
-      <main style={page}>
+      <main style={pageStyle}>
         <p>Loading OptiAdapt...</p>
       </main>
     );
   }
 
-  // Dashboard after successful Login
+  // Logged-in user
   if (user) {
     return (
-      <>
-        <Dashboard />
+      <div style={{ background: "#081426", minHeight: "100vh" }}>
 
-        <button
-          type="button"
-          onClick={handleLogout}
+        <nav
           style={{
-            position: "fixed",
-            top: "90px",
-            right: "24px",
-            zIndex: 10,
-            padding: "10px 20px",
-            borderRadius: "8px",
-            background: "#42e5e8",
-            color: "#081426",
-            border: "none",
-            cursor: "pointer",
-            fontWeight: "bold",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "12px",
+            flexWrap: "wrap",
+            padding: "12px 24px",
+            background: "#10213a",
           }}
         >
-          Logout
-        </button>
+          <button
+            style={buttonStyle}
+            onClick={() => setCurrentPage("dashboard")}
+          >
+            Dashboard
+          </button>
+
+          <button
+            style={buttonStyle}
+            onClick={() => setCurrentPage("cases")}
+          >
+            Customer Cases
+          </button>
+
+          <button
+            style={{
+              ...buttonStyle,
+              background: "#233c57",
+              color: "#ffffff",
+            }}
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </nav>
 
         {message && (
-          <p
-            role="alert"
-            style={{
-              position: "fixed",
-              top: "145px",
-              right: "24px",
-              color: "#ff9292",
-              zIndex: 10,
-              background: "#132743",
-              padding: "10px",
-              borderRadius: "8px",
-            }}
-          >
+          <p role="alert" style={{ color: "#ff9292", padding: "12px" }}>
             {message}
           </p>
         )}
-      </>
+
+        {currentPage === "dashboard" ? (
+          <Dashboard />
+        ) : (
+          <CustomerCases />
+        )}
+
+      </div>
     );
   }
 
-  // Login and Register Screen
+  // Login and Register
   return (
-    <main style={page}>
-      <section style={card}>
-        <h1
-          style={{
-            color: "#42e5e8",
-            fontSize: "38px",
-            marginBottom: "15px",
-          }}
-        >
+    <main style={pageStyle}>
+      <section style={cardStyle}>
+        <h1 style={{ color: "#42e5e8", fontSize: "38px" }}>
           OptiAdapt
         </h1>
 
-        <p
-          style={{
-            color: "#b9cddd",
-            marginBottom: "30px",
-          }}
-        >
+        <p style={{ color: "#b9cddd", margin: "20px 0" }}>
           Beyond the Lens. Into Better Vision.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <h2 style={{ marginBottom: "25px" }}>
-            {isRegister
-              ? "Create Account"
-              : "Welcome Back"}
-          </h2>
+        <h2 style={{ marginBottom: "25px" }}>
+          {isRegister ? "Create Account" : "Welcome Back"}
+        </h2>
 
+        <form onSubmit={handleSubmit}>
           <input
-            style={field}
             type="email"
             placeholder="Email Address"
+            style={inputStyle}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -222,36 +225,28 @@ function App() {
           />
 
           <input
-            style={field}
             type="password"
             placeholder="Password"
+            style={inputStyle}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete={
-              isRegister
-                ? "new-password"
-                : "current-password"
+              isRegister ? "new-password" : "current-password"
             }
             minLength={6}
             required
           />
 
           {message && (
-            <p
-              role="alert"
-              style={{
-                color: "#ff9292",
-                marginBottom: "15px",
-              }}
-            >
+            <p role="alert" style={{ color: "#ff9292", marginBottom: "15px" }}>
               {message}
             </p>
           )}
 
           <button
-            style={button}
             type="submit"
             disabled={loading}
+            style={{ ...buttonStyle, width: "100%" }}
           >
             {loading
               ? "Please wait..."
@@ -259,38 +254,31 @@ function App() {
               ? "Register"
               : "Login"}
           </button>
-
-          <p
-            style={{
-              marginTop: "25px",
-              color: "#b9cddd",
-            }}
-          >
-            {isRegister
-              ? "Already have an account?"
-              : "Don't have an account?"}
-          </p>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setMessage("");
-              setPassword("");
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#42e5e8",
-              cursor: "pointer",
-              marginTop: "10px",
-            }}
-          >
-            {isRegister
-              ? "Login here"
-              : "Register here"}
-          </button>
         </form>
+
+        <p style={{ marginTop: "24px", color: "#b9cddd" }}>
+          {isRegister
+            ? "Already have an account?"
+            : "Don't have an account?"}
+        </p>
+
+        <button
+          type="button"
+          style={{
+            background: "none",
+            border: "none",
+            color: "#42e5e8",
+            cursor: "pointer",
+            marginTop: "10px",
+          }}
+          onClick={() => {
+            setIsRegister(!isRegister);
+            setMessage("");
+            setPassword("");
+          }}
+        >
+          {isRegister ? "Login here" : "Register here"}
+        </button>
       </section>
     </main>
   );
