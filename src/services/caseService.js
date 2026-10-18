@@ -2,35 +2,54 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 
 import { auth, db } from "./firebase";
 
-// Save a new customer case
-export const addCustomerCase = async (caseData) => {
+const allowedLensTypes = [
+  "Single Vision",
+  "Bifocal",
+  "PAL",
+];
+
+// Check logged-in user
+const getCurrentUser = () => {
   const user = auth.currentUser;
 
   if (!user) {
     throw new Error("Please login first.");
   }
 
+  return user;
+};
+
+// Validate customer details
+const validateCaseData = (caseData) => {
   const customerName = caseData.customerName?.trim();
 
   if (!customerName) {
     throw new Error("Customer name is required.");
   }
 
-  const allowedLensTypes = [
-    "Single Vision",
-    "Bifocal",
-    "PAL",
-  ];
-
   if (!allowedLensTypes.includes(caseData.lensType)) {
     throw new Error("Invalid lens type.");
   }
+
+  return {
+    customerName,
+    lensType: caseData.lensType,
+  };
+};
+
+// CREATE - Add customer case
+export const addCustomerCase = async (caseData) => {
+  const user = getCurrentUser();
+  const validData = validateCaseData(caseData);
 
   const casesRef = collection(
     db,
@@ -40,8 +59,7 @@ export const addCustomerCase = async (caseData) => {
   );
 
   const docRef = await addDoc(casesRef, {
-    customerName,
-    lensType: caseData.lensType,
+    ...validData,
     status: "Active",
     createdAt: serverTimestamp(),
   });
@@ -49,13 +67,9 @@ export const addCustomerCase = async (caseData) => {
   return docRef.id;
 };
 
-// Get saved customer cases
+// READ - Get saved customer cases
 export const getCustomerCases = async () => {
-  const user = auth.currentUser;
-
-  if (!user) {
-    throw new Error("Please login first.");
-  }
+  const user = getCurrentUser();
 
   const casesRef = collection(
     db,
@@ -66,9 +80,9 @@ export const getCustomerCases = async () => {
 
   const snapshot = await getDocs(casesRef);
 
-  const cases = snapshot.docs.map((document) => ({
-    id: document.id,
-    ...document.data(),
+  const cases = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
   }));
 
   return cases.sort(
@@ -76,4 +90,54 @@ export const getCustomerCases = async () => {
       (b.createdAt?.toMillis?.() ?? 0) -
       (a.createdAt?.toMillis?.() ?? 0)
   );
+};
+
+// UPDATE - Edit customer case
+export const updateCustomerCase = async (
+  caseId,
+  updatedData
+) => {
+  const user = getCurrentUser();
+
+  if (!caseId || typeof caseId !== "string") {
+    throw new Error("Valid customer case ID is required.");
+  }
+
+  const validData = validateCaseData(updatedData);
+
+  const caseRef = doc(
+    db,
+    "users",
+    user.uid,
+    "cases",
+    caseId
+  );
+
+  await updateDoc(caseRef, {
+    ...validData,
+    updatedAt: serverTimestamp(),
+  });
+
+  return true;
+};
+
+// DELETE - Remove customer case
+export const deleteCustomerCase = async (caseId) => {
+  const user = getCurrentUser();
+
+  if (!caseId || typeof caseId !== "string") {
+    throw new Error("Valid customer case ID is required.");
+  }
+
+  const caseRef = doc(
+    db,
+    "users",
+    user.uid,
+    "cases",
+    caseId
+  );
+
+  await deleteDoc(caseRef);
+
+  return true;
 };
